@@ -10,34 +10,38 @@ from tensorflow import keras
 from math import ceil
 
 
-
+# Reading the input files
 with open('parfum_1.txt',encoding='utf-8') as f:
     parfum_1_text = f.read()
 with open('parfum_2.txt',encoding='utf-8') as f:
     parfum_2_text = f.read()
 
 
-
+# initializing a tokenizer to vectorize text
 tokenizer = tf.keras.preprocessing.text.Tokenizer(char_level=True)
 
+#Generates a dictionary, where each character is assinged a integer key
 parfum_12 = [parfum_1_text,parfum_2_text]
 tokenizer.fit_on_texts(parfum_12)
 
 max_id = len(tokenizer.word_index)
 
+# Making sure all values are between 0 and max_id-1, so that they correspond to the array indexing
 parfum_1_encoded,parfum_2_encoded = tokenizer.texts_to_sequences(parfum_12)
 parfum_1_encoded = np.array(parfum_1_encoded, dtype='int64')-1
 parfum_2_encoded = np.array(parfum_2_encoded,dtype='int64')-1
 
 [parfum_1_decoded] = tokenizer.sequences_to_texts([parfum_1_encoded+1])
 
+# generating the dataset 
 parfum_1_dataset = tf.data.Dataset.from_tensor_slices(parfum_1_encoded)
 parfum_2_dataset = tf.data.Dataset.from_tensor_slices(parfum_2_encoded)
 
+# window length to control context continuity in the result
 T=100
 window_length=101
 
-
+# dataset of sequences with specifed window legnth
 parfum_1_dataset=parfum_1_dataset.window(size=window_length,shift=1,drop_remainder=True)
 parfum_2_dataset=parfum_2_dataset.window(size=window_length,shift=1,drop_remainder=True)
 
@@ -49,7 +53,7 @@ parfum_2_dataset = parfum_2_dataset.flat_map(map_func)
 
 parfum_dataset = parfum_1_dataset.concatenate(parfum_2_dataset)
 
-
+# crating input pipeline for training
 tf.random.set_seed(0)
 batch_size=32
 parfum_dataset = parfum_dataset.repeat().shuffle(buffer_size=10000).batch(batch_size)
@@ -70,7 +74,7 @@ l12=l1+l2-2*(window_length-1)
 
 steps_per_epoch = ceil(l12/32)
 
-
+# Mdoel definition
 model = tf.keras.Sequential(
     [
         tf.keras.layers.InputLayer(input_shape=[None, max_id]),
@@ -83,7 +87,7 @@ model = tf.keras.Sequential(
 
 model.compile(loss='sparse_categorical_crossentropy',optimizer='adam')
 
-
+# Mdoel training
 callback=keras.callbacks.EarlyStopping(monitor='loss', patience=5, restore_best_weights=True)
 h= model.fit(
     c,
